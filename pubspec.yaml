@@ -1,0 +1,18 @@
+name: word_wise
+description: A word building game for children with dyslexia, with TTS feedback.
+publish_to: 'none'
+version: 1.0.0
+
+environment:
+  sdk: ">=2.18.0 <3.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_tts: ^4.2.3  # or latest version
+  # maybe provider or any state management if needed
+  provider: ^6.0.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
