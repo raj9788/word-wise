@@ -3,6 +3,8 @@ import 'package:flutter_tts/flutter_tts.dart';
 class TTSService {
   final FlutterTts _flutterTts = FlutterTts();
   bool _isInitialized = false;
+  String _lastSpoken = '';
+  bool _isSpeaking = false;
 
   TTSService() {
     _initTTS();
@@ -28,19 +30,42 @@ class TTSService {
   }
 
   Future<void> speakLetter(String letter) async {
+    if (_isSpeaking || letter == _lastSpoken) return;
+
+    _isSpeaking = true;
+    _lastSpoken = letter;
     // Speak individual letters clearly
     await speak(letter);
+    _isSpeaking = false;
   }
 
   Future<void> speakWord(String word) async {
+    if (word == _lastSpoken) return;
+    _lastSpoken = word;
+
     // First spell out the word letter by letter
     for (var letter in word.split('')) {
       await speakLetter(letter);
-      await Future.delayed(const Duration(milliseconds: 500));
+      await Future.delayed(const Duration(milliseconds: 250));
     }
     // Then pronounce the whole word
-    await Future.delayed(const Duration(milliseconds: 1000));
+    await Future.delayed(const Duration(milliseconds: 500));
     await speak(word);
+  }
+
+  Future<void> speakLetterInWord(String letter, String currentWord) async {
+    if (_isSpeaking) return;
+
+    _isSpeaking = true;
+    await speakLetter(letter);
+
+    // If we have a word of 3 or more letters, speak it
+    if (currentWord.length >= 3 && currentWord != _lastSpoken) {
+      await Future.delayed(const Duration(milliseconds: 100));
+      await speak(currentWord);
+      _lastSpoken = currentWord;
+    }
+    _isSpeaking = false;
   }
 
   Future<void> stop() async {

@@ -65,7 +65,7 @@ class WordDisplay extends StatelessWidget {
                 const SizedBox(width: 10),
                 ElevatedButton.icon(
                   onPressed: () => tts.speakWord(currentWord.word),
-                  icon: const Icon(Icons.volume_up),
+                  icon: const Icon(Icons.volume_up_outlined),
                   label: const Text('Speak'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.blue[400],

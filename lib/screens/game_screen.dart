@@ -42,11 +42,7 @@ class _GameScreenState extends State<GameScreen> {
       'M',
       'N',
       'P',
-      'R',
-      'S',
-      'T',
-      'W',
-      'Y'
+      'R'
     ].map((char) => Letter(character: char)).toList();
 
     letters = LetterWheel.shuffleLetters(letters);
@@ -88,7 +84,7 @@ class _GameScreenState extends State<GameScreen> {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Colors.blue[300]!, Colors.blue[600]!],
+            colors: [Colors.blue.shade300, Colors.blue.shade600],
           ),
         ),
         child: SafeArea(

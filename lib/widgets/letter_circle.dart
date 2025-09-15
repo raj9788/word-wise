@@ -22,8 +22,8 @@ class LetterCircle extends StatelessWidget {
         onTap();
       },
       child: Container(
-        width: 60,
-        height: 60,
+        width: 50,
+        height: 50,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           color: letter.isSelected ? Colors.blue[200] : Colors.white,

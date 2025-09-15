@@ -19,8 +19,8 @@ class WordWiseApp extends StatelessWidget {
       title: 'WordWise',
       theme: ThemeData(
         primarySwatch: Colors.blue,
-        fontFamily:
-            'OpenDyslexic', // If you have this font, it helps with dyslexia
+        // fontFamily:
+        //     'OpenDyslexic', // If you have this font, it helps with dyslexia
         visualDensity: VisualDensity.adaptivePlatformDensity,
       ),
       home: HomeScreen(),
