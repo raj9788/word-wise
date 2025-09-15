@@ -21,7 +21,7 @@ class LinePainter extends CustomPainter {
     if (selectedLetters.isEmpty) return;
 
     final paint = Paint()
-      ..color = Colors.white.withOpacity(0.6)
+      ..color = Colors.white
       ..strokeWidth = 8
       ..strokeCap = StrokeCap.round
       ..style = PaintingStyle.stroke;
