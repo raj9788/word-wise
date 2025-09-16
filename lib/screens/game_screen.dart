@@ -88,6 +88,63 @@ class _GameScreenState extends State<GameScreen> {
     });
   }
 
+  Future<void> _showHintDialog(String word) async {
+    final hint = wordGenerator.getWordHint(word);
+    if (hint == null) return;
+
+    final hintLevel = gameState.hintLevels[word] ?? 0;
+    final isLastHint = hintLevel >= 1;
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Word Hint'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (hintLevel > 0) ...[
+                Text(
+                  gameState.getHiddenWord(word),
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blue,
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
+              Text(hint),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            if (!isLastHint)
+              ElevatedButton(
+                onPressed: () {
+                  setState(() {
+                    gameState = gameState.copyWith(
+                      hintLevels: {
+                        ...gameState.hintLevels,
+                        word: (gameState.hintLevels[word] ?? 0) + 1,
+                      },
+                    );
+                  });
+                  tts.speak(hint);
+                  Navigator.of(context).pop();
+                },
+                child: Text(hintLevel == 0 ? 'Show Letters' : 'Reveal Word'),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
   Future<void> _showGiveUpDialog() async {
     final undiscoveredWords = targetWords
         .where((word) => !gameState.discoveredWords.contains(word))
@@ -188,15 +245,33 @@ class _GameScreenState extends State<GameScreen> {
           final isDiscovered = gameState.discoveredWords.contains(word);
           return Card(
             color: isDiscovered ? Colors.green.shade100 : Colors.white,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Center(
-                child: Text(
-                  gameState.getHiddenWord(word),
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: isDiscovered ? Colors.green : Colors.blue.shade700,
+            child: InkWell(
+              onLongPress: !isDiscovered ? () => _showHintDialog(word) : null,
+              child: Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Center(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        gameState.getHiddenWord(word),
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: isDiscovered
+                              ? Colors.green
+                              : Colors.blue.shade700,
+                        ),
+                      ),
+                      if (!isDiscovered &&
+                          (gameState.hintLevels[word] ?? 0) > 0)
+                        const Icon(
+                          Icons.lightbulb,
+                          color: Colors.amber,
+                          size: 20,
+                        ),
+                    ],
                   ),
                 ),
               ),
@@ -265,7 +340,7 @@ class _GameScreenState extends State<GameScreen> {
                 onLetterSelected: onLetterSelected,
                 tts: tts,
               ),
-              const SizedBox(height: 40),
+              // const SizedBox(height: 40),
             ],
           ),
         ),
