@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'game_screen.dart';
 import '../services/tts_service.dart';
+import '../models/game_difficulty.dart';
 
 class HomeScreen extends StatelessWidget {
   final TTSService tts = TTSService();
@@ -42,34 +43,40 @@ class HomeScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 50),
-                ElevatedButton(
-                  onPressed: () {
-                    tts.speak('Let\'s play WordWise!');
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const GameScreen(),
-                      ),
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 50,
-                      vertical: 20,
-                    ),
-                    backgroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                  ),
-                  child: const Text(
-                    'Play',
-                    style: TextStyle(
-                      fontSize: 24,
-                      color: Colors.blue,
-                    ),
-                  ),
-                ),
+                ...GameDifficulty.values
+                    .map((difficulty) => Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8.0),
+                          child: ElevatedButton(
+                            onPressed: () {
+                              tts.speak('Starting ${difficulty.label} mode');
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      GameScreen(difficulty: difficulty),
+                                ),
+                              );
+                            },
+                            style: ElevatedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 50,
+                                vertical: 20,
+                              ),
+                              backgroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(30),
+                              ),
+                            ),
+                            child: Text(
+                              difficulty.label,
+                              style: const TextStyle(
+                                fontSize: 24,
+                                color: Colors.blue,
+                              ),
+                            ),
+                          ),
+                        ))
+                    .toList(),
                 const SizedBox(height: 20),
                 TextButton(
                   onPressed: () => tts.speak(

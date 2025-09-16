@@ -1,12 +1,20 @@
 import 'package:flutter/material.dart';
 import '../models/letter.dart';
 import '../models/word.dart';
+import '../models/game_state.dart';
+import '../models/game_difficulty.dart';
 import '../services/tts_service.dart';
+import '../services/word_generator_service.dart';
 import '../widgets/letter_wheel.dart';
 import '../widgets/word_display.dart';
 
 class GameScreen extends StatefulWidget {
-  const GameScreen({Key? key}) : super(key: key);
+  final GameDifficulty difficulty;
+
+  const GameScreen({
+    Key? key,
+    required this.difficulty,
+  }) : super(key: key);
 
   @override
   _GameScreenState createState() => _GameScreenState();
@@ -14,9 +22,12 @@ class GameScreen extends StatefulWidget {
 
 class _GameScreenState extends State<GameScreen> {
   final TTSService tts = TTSService();
+  final WordGeneratorService wordGenerator = WordGeneratorService();
+
+  late GameState gameState;
   late List<Letter> letters;
   late Word currentWord;
-  int score = 0;
+  late List<String> targetWords;
 
   @override
   void initState() {
@@ -25,27 +36,21 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void initializeGame() {
-    // Initialize with a set of letters (you can customize this)
-    letters = [
-      'A',
-      'E',
-      'I',
-      'O',
-      'U',
-      'B',
-      'C',
-      'D',
-      'F',
-      'G',
-      'H',
-      'L',
-      'M',
-      'N',
-      'P',
-      'R'
-    ].map((char) => Letter(character: char)).toList();
+    // Generate words based on difficulty
+    targetWords = wordGenerator.generateWords(widget.difficulty);
+    print('Target Words: $targetWords');
+    // Generate letters from the target words
+    letters = wordGenerator.generateLettersFromWords(targetWords);
 
-    letters = LetterWheel.shuffleLetters(letters);
+    // Initialize game state
+    gameState = GameState(
+      difficulty: widget.difficulty,
+      targetWords: targetWords,
+      discoveredWords: [],
+      availableLetters: letters,
+    );
+
+    // Initialize current word
     currentWord = Word(letters: []);
   }
 
@@ -53,10 +58,23 @@ class _GameScreenState extends State<GameScreen> {
     setState(() {
       if (!letter.isSelected) {
         letter.isSelected = true;
-        currentWord = Word(
+        final newWord = Word(
           letters: [...currentWord.letters, letter],
-          isValid: isValidWord(currentWord.word + letter.character),
         );
+
+        // Check if the word is valid and can be discovered
+        final wordStr = newWord.word.toUpperCase();
+        if (gameState.checkWord(wordStr)) {
+          // Word discovered!
+          gameState = gameState.copyWith(
+              discoveredWords: [...gameState.discoveredWords, wordStr]);
+          // Speak the discovered word
+          tts.speak("Word found: $wordStr");
+          // Clear the selection after a brief delay
+          Future.delayed(const Duration(milliseconds: 500), clearWord);
+        } else {
+          currentWord = newWord;
+        }
       }
     });
   }
@@ -70,10 +88,123 @@ class _GameScreenState extends State<GameScreen> {
     });
   }
 
-  bool isValidWord(String word) {
-    // TODO: Implement word validation against a dictionary
-    // For now, let's consider words of length 3 or more as valid
-    return word.length >= 3;
+  Future<void> _showGiveUpDialog() async {
+    final undiscoveredWords = targetWords
+        .where((word) => !gameState.discoveredWords.contains(word))
+        .toList();
+
+    final percentComplete =
+        (gameState.discoveredWords.length / targetWords.length * 100).round();
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(
+            'You found $percentComplete% of the words!',
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Here are the words you missed:',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 12),
+              ...undiscoveredWords
+                  .map((word) => Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Row(
+                          children: [
+                            Text(
+                              '• $word',
+                              style: const TextStyle(
+                                fontSize: 18,
+                                color: Colors.red,
+                              ),
+                            ),
+                            const Spacer(),
+                            IconButton(
+                              icon: const Icon(Icons.volume_up),
+                              onPressed: () => tts.speak(word),
+                              color: Colors.blue,
+                            ),
+                          ],
+                        ),
+                      ))
+                  .toList(),
+              const SizedBox(height: 16),
+              Text(
+                percentComplete >= 70
+                    ? 'Great effort! You were so close!'
+                    : percentComplete >= 40
+                        ? 'Not bad! Keep practicing to improve!'
+                        : 'Don\'t give up! You can do better!',
+                style: const TextStyle(
+                  fontStyle: FontStyle.italic,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                Navigator.of(context).pop(); // Return to home screen
+              },
+              child: const Text('Quit Game'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                setState(() {
+                  initializeGame(); // Start a new game
+                });
+              },
+              child: const Text('Try Again'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildWordList() {
+    return Container(
+      height: 120,
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: targetWords.length,
+        itemBuilder: (context, index) {
+          final word = targetWords[index];
+          final isDiscovered = gameState.discoveredWords.contains(word);
+          return Card(
+            color: isDiscovered ? Colors.green.shade100 : Colors.white,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Center(
+                child: Text(
+                  gameState.getHiddenWord(word),
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: isDiscovered ? Colors.green : Colors.blue.shade700,
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
   }
 
   @override
@@ -89,7 +220,6 @@ class _GameScreenState extends State<GameScreen> {
         ),
         child: SafeArea(
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
               Padding(
                 padding: const EdgeInsets.all(20.0),
@@ -101,26 +231,41 @@ class _GameScreenState extends State<GameScreen> {
                       onPressed: () => Navigator.pop(context),
                     ),
                     Text(
-                      'Score: $score',
+                      'Score: ${gameState.discoveredWords.length}/${gameState.targetWords.length}',
                       style: const TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
                       ),
                     ),
+                    TextButton.icon(
+                      icon: const Icon(Icons.flag, color: Colors.white),
+                      label: const Text(
+                        'Give Up',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      onPressed: _showGiveUpDialog,
+                    ),
                   ],
                 ),
               ),
+              _buildWordList(),
+              const Spacer(),
               WordDisplay(
                 currentWord: currentWord,
                 tts: tts,
                 onClear: clearWord,
               ),
+              const SizedBox(height: 20),
               LetterWheel(
                 letters: letters,
                 onLetterSelected: onLetterSelected,
                 tts: tts,
               ),
+              const SizedBox(height: 40),
             ],
           ),
         ),
