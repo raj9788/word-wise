@@ -5,28 +5,88 @@ class TTSService {
   bool _isInitialized = false;
   String _lastSpoken = '';
   bool _isSpeaking = false;
+  final Map<String, String> _pronunciationRules = {
+    'A': 'ay',
+    'B': 'bee',
+    'C': 'see',
+    'D': 'dee',
+    'E': 'ee',
+    'F': 'ef',
+    'G': 'gee',
+    'H': 'aitch',
+    'I': 'eye',
+    'J': 'jay',
+    'K': 'kay',
+    'L': 'el',
+    'M': 'em',
+    'N': 'en',
+    'O': 'oh',
+    'P': 'pee',
+    'Q': 'cue',
+    'R': 'ar',
+    'S': 'es',
+    'T': 'tee',
+    'U': 'you',
+    'V': 'vee',
+    'W': 'double you',
+    'X': 'ex',
+    'Y': 'why',
+    'Z': 'zee',
+  };
 
   TTSService() {
     _initTTS();
   }
 
   Future<void> _initTTS() async {
-    await _flutterTts.setLanguage("en-US");
-    await _flutterTts
-        .setVoice({"name": "en-us-x-sfg#male_1-local", "locale": "en-US"});
-    await _flutterTts
-        .setSpeechRate(0.5); // Slower speech rate for better comprehension
-    await _flutterTts.setVolume(1.0);
-    await _flutterTts.setPitch(1.0);
-    _isInitialized = true;
+    try {
+      await _flutterTts.setLanguage("en-US");
+
+      // Set a specific voice for better reliability
+      await _flutterTts
+          .setVoice({"name": "en-us-x-sfg#male_1-local", "locale": "en-US"});
+
+      await _flutterTts.setSpeechRate(0.4); // Slower for clearer pronunciation
+      await _flutterTts.setVolume(1.0);
+      await _flutterTts.setPitch(1.0);
+
+      // Set completion handler
+      _flutterTts.setCompletionHandler(() {
+        _isSpeaking = false;
+      });
+
+      // Set error handler
+      _flutterTts.setErrorHandler((msg) {
+        _isSpeaking = false;
+        print('TTS Error: $msg');
+      });
+
+      _isInitialized = true;
+    } catch (e) {
+      print('TTS Initialization Error: $e');
+      _isInitialized = false;
+    }
   }
 
-  Future<void> speak(String text) async {
+  Future<void> speak(String text, {bool useSpelling = false}) async {
     if (!_isInitialized) {
       await _initTTS();
     }
-    await _flutterTts.stop(); // Stop any ongoing speech
-    await _flutterTts.speak(text);
+    if (!_isInitialized) return; // Don't proceed if initialization failed
+
+    try {
+      await _flutterTts.stop(); // Stop any ongoing speech
+      if (useSpelling && text.length == 1) {
+        // Use pronunciation rules for single letters
+        final pronunciation = _pronunciationRules[text.toUpperCase()] ?? text;
+        await _flutterTts.speak(pronunciation);
+      } else {
+        await _flutterTts.speak(text);
+      }
+    } catch (e) {
+      print('TTS Speak Error: $e');
+      _isSpeaking = false;
+    }
   }
 
   Future<void> speakLetter(String letter) async {
@@ -34,8 +94,8 @@ class TTSService {
 
     _isSpeaking = true;
     _lastSpoken = letter;
-    // Speak individual letters clearly
-    await speak(letter);
+    await speak(letter, useSpelling: true);
+    await Future.delayed(const Duration(milliseconds: 50));
     _isSpeaking = false;
   }
 
@@ -43,29 +103,58 @@ class TTSService {
     if (word == _lastSpoken) return;
     _lastSpoken = word;
 
-    // First spell out the word letter by letter
-    for (var letter in word.split('')) {
-      await speakLetter(letter);
-      await Future.delayed(const Duration(milliseconds: 250));
+    try {
+      _isSpeaking = true;
+
+      // First spell out the word letter by letter
+      for (var i = 0; i < word.length; i++) {
+        final letter = word[i];
+        await speakLetter(letter);
+
+        // Longer pause between letters for better clarity
+        await Future.delayed(const Duration(milliseconds: 300));
+      }
+
+      // Slight pause before saying the complete word
+      await Future.delayed(const Duration(milliseconds: 600));
+
+      // Say "The word is" for better context
+      await speak("The word is");
+      await Future.delayed(const Duration(milliseconds: 300));
+
+      // Say the complete word slowly
+      await _flutterTts.setSpeechRate(0.3);
+      await speak(word);
+      await Future.delayed(const Duration(milliseconds: 300));
+
+      // Repeat the word at normal speed
+      await _flutterTts.setSpeechRate(0.4);
+      await speak(word);
+    } catch (e) {
+      print('TTS Word Error: $e');
+    } finally {
+      _isSpeaking = false;
     }
-    // Then pronounce the whole word
-    await Future.delayed(const Duration(milliseconds: 500));
-    await speak(word);
   }
 
   Future<void> speakLetterInWord(String letter, String currentWord) async {
     if (_isSpeaking) return;
 
-    _isSpeaking = true;
-    await speakLetter(letter);
+    try {
+      _isSpeaking = true;
+      await speakLetter(letter);
 
-    // If we have a word of 3 or more letters, speak it
-    if (currentWord.length >= 3 && currentWord != _lastSpoken) {
-      await Future.delayed(const Duration(milliseconds: 100));
-      await speak(currentWord);
-      _lastSpoken = currentWord;
+      // If we have a word of 3 or more letters, speak it
+      if (currentWord.length >= 3 && currentWord != _lastSpoken) {
+        await Future.delayed(const Duration(milliseconds: 200));
+        await speak(currentWord);
+        _lastSpoken = currentWord;
+      }
+    } catch (e) {
+      print('TTS Letter in Word Error: $e');
+    } finally {
+      _isSpeaking = false;
     }
-    _isSpeaking = false;
   }
 
   Future<void> stop() async {
